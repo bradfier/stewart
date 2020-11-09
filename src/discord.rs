@@ -40,7 +40,7 @@ pub async fn create_client(token: &str) -> Client {
         .group(&GENERAL_GROUP);
 
     // Login with a bot token from the environment
-    let client = Client::new(token)
+    let client = Client::builder(token)
         .event_handler(Handler)
         .framework(framework)
         .await
