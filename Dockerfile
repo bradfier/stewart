@@ -19,5 +19,6 @@ RUN apk --no-cache add ca-certificates
 COPY --from=builder \
     /home/rust/src/target/x86_64-unknown-linux-musl/release/stewart \
     /usr/local/bin/
+ENV RUST_LOG="stewart=info"
 CMD /usr/local/bin/stewart
 
