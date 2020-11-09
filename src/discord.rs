@@ -50,6 +50,7 @@ async fn protest_channel(ctx: &Context, msg: &Message, mut args: Args) -> Comman
                 .send_message(ctx, |mut m| {
                     if let Some(text) = remaining_text {
                         m = m.content(text);
+                        info!("Intro text: {}", text);
                     }
                     if let Some(embed) = embed {
                         m = m.set_embed(embed);

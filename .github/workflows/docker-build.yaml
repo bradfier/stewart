@@ -1,0 +1,32 @@
+on:
+  release:
+    types: [published]
+
+name: Docker Build & Deploy
+
+jobs:
+  build:
+    name: Build, Push and Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build and push image
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+          registry: ghcr.io
+          tags: latest,${{ github.event.release.tag_name }}
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.DOKKU_SSH_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+      - name: Pull image
+        run: ssh ${{ secrets.DOKKU_USER }}@radio.bradfirj.co.uk docker pull ghcr.io/bradfier/stewart:${{ github.event.release.tag_name }}
+      - name: Tag image
+        run: ssh ${{ secrets.DOKKU_USER }}@radio.bradfirj.co.uk docker tag \
+          ghcr.io/bradfier/stewart:${{ github.event.release.tag_name }} \
+          dokku/stewart:${{ github.event.release.tag_name }}
+      - name: Deploy image
+        run: ssh ${{ secrets.DOKKU_USER }}@radio.bradfirj.co.uk dokku tags:deploy stewart ${{ github.event.release.tag_name }}
