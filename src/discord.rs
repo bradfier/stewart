@@ -1,14 +1,10 @@
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
-use serenity::model::channel::{Reaction, Message};
 use serenity::framework::standard::{
-    StandardFramework,
-    CommandResult,
-    macros::{
-        command,
-        group
-    }
+    macros::{command, group},
+    CommandResult, StandardFramework,
 };
+use serenity::model::channel::{Message, Reaction};
 
 use log::info;
 
@@ -20,11 +16,9 @@ struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
-
     async fn reaction_add(&self, _: Context, reaction: Reaction) {
         info!("Reaction added!: {:?}", reaction);
     }
-
 }
 
 #[command]

@@ -1,5 +1,4 @@
 use std::env;
-use log::info;
 
 mod discord;
 
@@ -7,8 +6,7 @@ mod discord;
 async fn main() {
     pretty_env_logger::init();
 
-    let token = env::var("DISCORD_TOKEN")
-        .expect("DISCORD_TOKEN must be set in the environment");
+    let token = env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set in the environment");
     let mut discord_client = discord::create_client(&token).await;
 
     // start listening for events by starting a single shard
