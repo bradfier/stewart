@@ -270,6 +270,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "envy"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f938a4abd5b75fe3737902dbc2e79ca142cc1526827a9e40b829a086758531a9"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1466,13 +1475,16 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stewart"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
+ "envy",
  "futures",
  "lazy_static",
  "log",
  "pretty_env_logger",
  "prometheus",
+ "serde",
+ "serde_derive",
  "serenity",
  "tokio",
  "warp",

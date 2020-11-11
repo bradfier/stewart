@@ -9,6 +9,12 @@ lazy_static! {
         &["user", "guild_name"]
     )
     .unwrap();
+    pub static ref COMMANDS_EXECUTED: IntCounterVec = register_int_counter_vec!(
+        "stewart_commands_executed",
+        "Number of commands the bot has processed",
+        &["command", "success", "user", "guild_name"]
+    )
+    .unwrap();
     pub static ref GUILDS_CONNECTED: IntGauge = register_int_gauge!(
         "stewart_guilds_connected",
         "Number of guilds to which the bot is connected"
