@@ -9,6 +9,8 @@ use serenity::model::channel::{ChannelType, Message};
 
 use log::info;
 
+use crate::metrics;
+
 #[group]
 #[only_in(guilds)]
 #[commands(protest_channel)]
@@ -21,6 +23,11 @@ async fn protest_channel(ctx: &Context, msg: &Message, mut args: Args) -> Comman
     let source_channel = msg.channel_id.to_channel(ctx).await?.guild();
 
     if let Some(source_channel) = source_channel {
+        let guild_name = source_channel
+            .guild_id
+            .name(ctx)
+            .await
+            .unwrap_or_else(|| "Unknown".to_string());
         let target_category = source_channel.category_id;
         info!(
             "Creating channel \"{}\" for user {}",
@@ -59,9 +66,17 @@ async fn protest_channel(ctx: &Context, msg: &Message, mut args: Args) -> Comman
                 })
                 .await?;
         }
+
+        metrics::PROTEST_CHANNELS_CREATED
+            .with_label_values(&[&msg.author.name, &guild_name])
+            .inc();
     } else {
         error!("Received a create-channel message from a non-guild context");
     }
+
+    // Update our current view of how many Guilds we're connected to
+    let num_guilds = ctx.cache.current_user().await.guilds(&ctx).await?.len();
+    metrics::GUILDS_CONNECTED.set(num_guilds as i64);
 
     Ok(())
 }
