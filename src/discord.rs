@@ -1,16 +1,129 @@
-use log::error;
+use std::collections::HashSet;
+use std::time::Duration;
+
 use serenity::builder::CreateEmbed;
 use serenity::client::{Client, Context};
 use serenity::framework::standard::{
-    macros::{check, command, group, hook},
-    Args, CheckResult, CommandOptions, CommandResult, StandardFramework,
+    help_commands,
+    macros::{check, command, group, help, hook},
+    Args, CheckResult, CommandGroup, CommandOptions, CommandResult, HelpOptions, StandardFramework,
 };
 use serenity::model::channel::{ChannelType, Message};
+use serenity::model::id::UserId;
+use serenity::prelude::*;
 
-use log::{info, warn};
+use log::{error, info, warn};
+use thiserror::Error;
 
 use crate::config;
 use crate::metrics;
+use crate::strategy;
+
+#[derive(Error, Debug)]
+enum CommandErr {
+    #[error("Invalid argument parsed for command")]
+    InvalidCommandArgument,
+}
+
+// Accept either minutes or HH:MM
+fn parse_mins_or_hhmm(input: &str) -> Result<Duration, CommandErr> {
+    if !input.contains(':') {
+        let i = input
+            .parse::<u32>()
+            .map_err(|_| CommandErr::InvalidCommandArgument)?;
+        return Ok(Duration::new(i as u64 * 60, 0));
+    } else {
+        let parts: Vec<&str> = input.split(':').collect();
+        if parts.len() == 2 {
+            let hours = parts[0].parse::<u32>().ok();
+            let minutes = parts[1].parse::<u32>().ok();
+
+            if let (Some(hours), Some(minutes)) = (hours, minutes) {
+                let mins: u64 = (hours * 60 + minutes) as u64;
+                return Ok(Duration::new(mins * 60, 0));
+            }
+        }
+    }
+    Err(CommandErr::InvalidCommandArgument)
+}
+
+fn parse_mmss(input: &str) -> Result<Duration, CommandErr> {
+    let parts: Vec<&str> = input.split(':').collect();
+    if parts.len() == 2 {
+        let mins = parts[0].parse::<u32>().ok();
+        let secs = parts[1].parse::<u32>().ok();
+
+        if let (Some(mins), Some(secs)) = (mins, secs) {
+            return Ok(Duration::new((secs + mins * 60) as u64, 0));
+        }
+    }
+    Err(CommandErr::InvalidCommandArgument)
+}
+
+#[group]
+#[only_in(guilds)]
+#[prefix("strat")]
+#[commands(strat_calc)]
+#[default_command(strat_calc)]
+struct Strat;
+
+#[command]
+#[aliases("calc")]
+async fn strat_calc(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    // Ordering must be preserved
+    let race_time = parse_mins_or_hhmm(&args.single::<String>()?)?;
+    let lap_time = parse_mmss(&args.single::<String>()?)?;
+    let fuel_per_lap = args.single::<f64>()?;
+    let fuel_capacity = args.single::<u32>()?;
+
+    // Optional args, mandatory pitstops and max stint time
+    let mandatory_pits = if !args.is_empty() {
+        Some(args.single::<u8>()?)
+    } else {
+        None
+    };
+
+    let permitted_max_stint_length = if !args.is_empty() {
+        Some(parse_mins_or_hhmm(&args.single::<String>()?)?)
+    } else {
+        None
+    };
+    // End preserve ordering
+
+    let strategy_input = strategy::StrategyInput {
+        race_duration: race_time,
+        avg_laptime: lap_time,
+        fuel_per_lap,
+        fuel_capacity,
+        mandatory_pits,
+        permitted_max_stint_length,
+    };
+
+    let strategies = strategy_input.calculate();
+
+    let content = if strategies.len() == 1 {
+        "We calculated one strategy for you.".to_string()
+    } else {
+        format!("We calculated {} strategies for you.", strategies.len())
+    };
+
+    msg.channel_id
+        .send_message(ctx, |m| {
+            m.content(msg.author.mention());
+            m.embed(|e| {
+                e.title("Strategy Calculator");
+                e.description(content);
+                for s in strategies {
+                    e.field(s.discord_title(), s.as_discord_text(), true);
+                }
+                e
+            });
+            m
+        })
+        .await?;
+
+    Ok(())
+}
 
 #[group]
 #[only_in(guilds)]
@@ -124,10 +237,25 @@ async fn after(ctx: &Context, msg: &Message, command_name: &str, command_result:
     }
 }
 
+#[help]
+async fn my_help(
+    context: &Context,
+    msg: &Message,
+    args: Args,
+    help_options: &'static HelpOptions,
+    groups: &[&'static CommandGroup],
+    owners: HashSet<UserId>,
+) -> CommandResult {
+    let _ = help_commands::with_embeds(context, msg, args, help_options, groups, owners).await;
+    Ok(())
+}
+
 pub async fn create_client(token: &str) -> Client {
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("!").ignore_webhooks(false).ignore_bots(false))
+        .help(&MY_HELP)
         .group(&PROTEST_GROUP)
+        .group(&STRAT_GROUP)
         .after(after);
 
     // Login with a bot token from the environment

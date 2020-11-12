@@ -6,6 +6,7 @@ use warp::Filter;
 mod config;
 mod discord;
 mod metrics;
+mod strategy;
 
 #[tokio::main]
 async fn main() {

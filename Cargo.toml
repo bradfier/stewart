@@ -17,6 +17,8 @@ lazy_static = "1.1.0"
 serde = "1"
 serde_derive = "1"
 envy = "0.4"
+humantime = "2"
+thiserror = "1"
 
 [dependencies.serenity]
 version = "0.9.1"
