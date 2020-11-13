@@ -1,10 +1,49 @@
 use std::time::Duration;
 
+use serenity::framework::standard::Args;
+
+use crate::discord::CommandErr;
+
 #[derive(Debug, Clone)]
 pub enum Strategy {
     SingleStint(StrategyInner),
     LongStints(StrategyInner),
     EqualStints(StrategyInner),
+}
+
+// Accept either minutes or HH:MM
+fn parse_mins_or_hhmm(input: &str) -> Result<Duration, CommandErr> {
+    if !input.contains(':') {
+        let i = input
+            .parse::<u32>()
+            .map_err(|_| CommandErr::InvalidCommandArgument)?;
+        return Ok(Duration::new(i as u64 * 60, 0));
+    } else {
+        let parts: Vec<&str> = input.split(':').collect();
+        if parts.len() == 2 {
+            let hours = parts[0].parse::<u32>().ok();
+            let minutes = parts[1].parse::<u32>().ok();
+
+            if let (Some(hours), Some(minutes)) = (hours, minutes) {
+                let mins: u64 = (hours * 60 + minutes) as u64;
+                return Ok(Duration::new(mins * 60, 0));
+            }
+        }
+    }
+    Err(CommandErr::InvalidCommandArgument)
+}
+
+fn parse_mmss(input: &str) -> Result<Duration, CommandErr> {
+    let parts: Vec<&str> = input.split(':').collect();
+    if parts.len() == 2 {
+        let mins = parts[0].parse::<u32>().ok();
+        let secs = parts[1].parse::<u32>().ok();
+
+        if let (Some(mins), Some(secs)) = (mins, secs) {
+            return Ok(Duration::new((secs + mins * 60) as u64, 0));
+        }
+    }
+    Err(CommandErr::InvalidCommandArgument)
 }
 
 impl Strategy {
@@ -22,6 +61,41 @@ impl Strategy {
             Strategy::LongStints(_) => "Longer Stints",
             Strategy::EqualStints(_) => "Equal Stints",
         }
+    }
+
+    pub fn from_discord_args(
+        args: &mut Args,
+    ) -> Result<Vec<Strategy>, Box<dyn std::error::Error + Send + Sync>> {
+        // Ordering must be preserved
+        let race_time = parse_mins_or_hhmm(&args.single::<String>()?)?;
+        let lap_time = parse_mmss(&args.single::<String>()?)?;
+        let fuel_per_lap = args.single::<f64>()?;
+        let fuel_capacity = args.single::<u32>()?;
+
+        // Optional args, mandatory pitstops and max stint time
+        let mandatory_pits = if !args.is_empty() {
+            Some(args.single::<u8>()?)
+        } else {
+            None
+        };
+
+        let permitted_max_stint_length = if !args.is_empty() {
+            Some(parse_mins_or_hhmm(&args.single::<String>()?)?)
+        } else {
+            None
+        };
+        // End preserve ordering
+
+        let strategy_input = StrategyInput {
+            race_duration: race_time,
+            avg_laptime: lap_time,
+            fuel_per_lap,
+            fuel_capacity,
+            mandatory_pits,
+            permitted_max_stint_length,
+        };
+
+        Ok(strategy_input.calculate())
     }
 }
 
