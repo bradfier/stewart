@@ -36,7 +36,7 @@ async fn strat_calc(ctx: &Context, msg: &Message, mut args: Args) -> CommandResu
     let strategies = strategy::Strategy::from_discord_args(&mut args);
 
     if let Ok(strategies) = strategies {
-        info!("Calculated strategy for user {}", msg.author);
+        info!("Calculated strategy for user {}", msg.author.name);
         let content = if strategies.len() == 1 {
             "We calculated one strategy for you.".to_string()
         } else {
@@ -60,7 +60,7 @@ async fn strat_calc(ctx: &Context, msg: &Message, mut args: Args) -> CommandResu
     } else {
         warn!(
             "Bad input or help request for strat command, user {}",
-            msg.author
+            msg.author.name
         );
         msg.channel_id.send_message(ctx, |m| {
             m.content(format!("{}, try one of the examples below:\n\
