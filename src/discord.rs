@@ -134,7 +134,7 @@ async fn protest_channel(ctx: &Context, msg: &Message, mut args: Args) -> Comman
             // first from that which triggered us
             let embed: Option<CreateEmbed> = msg.embeds.first().cloned().map(Into::into);
 
-            new_chan
+            let intro_message = new_chan
                 .send_message(ctx, |mut m| {
                     if let Some(text) = remaining_text {
                         m = m.content(text);
@@ -146,6 +146,8 @@ async fn protest_channel(ctx: &Context, msg: &Message, mut args: Args) -> Comman
                     m
                 })
                 .await?;
+
+            intro_message.pin(ctx).await?;
         }
 
         metrics::PROTEST_CHANNELS_CREATED
@@ -160,6 +162,13 @@ async fn protest_channel(ctx: &Context, msg: &Message, mut args: Args) -> Comman
 
 #[hook]
 async fn after(ctx: &Context, msg: &Message, command_name: &str, command_result: CommandResult) {
+    if let Err(ref e) = command_result {
+        warn!(
+            "Error for command '{}' executed by user '{}': {:?}",
+            &command_name, &msg.author.name, e
+        );
+    };
+
     let success = match command_result {
         Ok(()) => true,
         Err(_) => false,
