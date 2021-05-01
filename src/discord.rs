@@ -5,8 +5,8 @@ use serenity::framework::standard::{
     macros::{check, command, group, help, hook},
     Args, CheckResult, CommandGroup, CommandOptions, CommandResult, HelpOptions, StandardFramework,
 };
-use serenity::model::channel::{ChannelType, Message};
-use serenity::model::id::UserId;
+use serenity::model::channel::{ChannelType, Message, GuildChannel};
+use serenity::model::id::{UserId, ChannelId};
 use serenity::prelude::*;
 use std::collections::HashSet;
 
@@ -16,11 +16,14 @@ use thiserror::Error;
 use crate::config;
 use crate::metrics;
 use crate::strategy;
+use std::time::Duration;
 
 #[derive(Error, Debug)]
 pub enum CommandErr {
     #[error("Invalid argument parsed for command")]
     InvalidCommandArgument,
+    #[error("Channel creation never reached the cache")]
+    ChannelCreationLost,
 }
 
 #[group]
@@ -134,7 +137,10 @@ async fn protest_channel(ctx: &Context, msg: &Message, mut args: Args) -> Comman
             // first from that which triggered us
             let embed: Option<CreateEmbed> = msg.embeds.first().cloned().map(Into::into);
 
-            let intro_message = new_chan
+            // It's possible that the new channel isn't available yet so we may need to wait for it
+            // to appear in the cache.
+            let concrete = wait_for_channel(ctx, &new_chan).await?;
+            let intro_message = concrete
                 .send_message(ctx, |mut m| {
                     if let Some(text) = remaining_text {
                         m = m.content(text);
@@ -158,6 +164,23 @@ async fn protest_channel(ctx: &Context, msg: &Message, mut args: Args) -> Comman
     }
 
     Ok(())
+}
+
+async fn wait_for_channel<C: Into<ChannelId>>(ctx: &Context, chan: C) -> Result<GuildChannel, CommandErr> {
+    let mut attempts: u8 = 0;
+
+    let id = chan.into();
+    while attempts < 3 {
+        if let Some(created) = ctx.cache.guild_channel(id).await {
+            return Ok(created);
+        } else {
+            info!("Waiting 100ms for channel to be available");
+            tokio::time::delay_for(Duration::from_millis(100)).await;
+            attempts += 1;
+            continue;
+        }
+    }
+    Err(CommandErr::ChannelCreationLost)
 }
 
 #[hook]
