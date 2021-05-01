@@ -3,7 +3,7 @@ use serenity::client::{Client, Context};
 use serenity::framework::standard::{
     help_commands,
     macros::{check, command, group, help, hook},
-    Args, CheckResult, CommandGroup, CommandOptions, CommandResult, HelpOptions, StandardFramework,
+    Args, CommandGroup, CommandOptions, CommandResult, HelpOptions, Reason, StandardFramework,
 };
 use serenity::model::channel::{ChannelType, GuildChannel, Message};
 use serenity::model::id::{ChannelId, UserId};
@@ -90,12 +90,14 @@ async fn protest_channel_check(
     msg: &Message,
     _: &mut Args,
     _: &CommandOptions,
-) -> CheckResult {
+) -> Result<(), Reason> {
     if config::CONFIG.protest_channels.contains(&msg.channel_id.0) {
-        CheckResult::Success
+        Ok(())
     } else {
         warn!("Attempt to call !protest-channel in a non-whitelisted channel");
-        CheckResult::new_log("This command is only permitted in certain channels.")
+        Err(Reason::Log(
+            "This command is only permitted in certain channels.".to_string(),
+        ))
     }
 }
 
@@ -180,7 +182,7 @@ async fn wait_for_channel<C: Into<ChannelId>>(
             return Ok(created);
         } else {
             info!("Waiting 100ms for channel to be available");
-            tokio::time::delay_for(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
             attempts += 1;
             continue;
         }
