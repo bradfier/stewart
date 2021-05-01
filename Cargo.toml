@@ -1,6 +1,6 @@
 [package]
 name = "stewart"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Richard Bradfield <bradfier@fstab.me>"]
 edition = "2018"
 

@@ -5,8 +5,8 @@ use serenity::framework::standard::{
     macros::{check, command, group, help, hook},
     Args, CheckResult, CommandGroup, CommandOptions, CommandResult, HelpOptions, StandardFramework,
 };
-use serenity::model::channel::{ChannelType, Message, GuildChannel};
-use serenity::model::id::{UserId, ChannelId};
+use serenity::model::channel::{ChannelType, GuildChannel, Message};
+use serenity::model::id::{ChannelId, UserId};
 use serenity::prelude::*;
 use std::collections::HashSet;
 
@@ -153,6 +153,8 @@ async fn protest_channel(ctx: &Context, msg: &Message, mut args: Args) -> Comman
                 })
                 .await?;
 
+            info!("Created intro message: {:?}", intro_message);
+            info!("Attempting to pin intro message.");
             intro_message.pin(ctx).await?;
         }
 
@@ -166,7 +168,10 @@ async fn protest_channel(ctx: &Context, msg: &Message, mut args: Args) -> Comman
     Ok(())
 }
 
-async fn wait_for_channel<C: Into<ChannelId>>(ctx: &Context, chan: C) -> Result<GuildChannel, CommandErr> {
+async fn wait_for_channel<C: Into<ChannelId>>(
+    ctx: &Context,
+    chan: C,
+) -> Result<GuildChannel, CommandErr> {
     let mut attempts: u8 = 0;
 
     let id = chan.into();
