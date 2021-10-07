@@ -21,7 +21,7 @@ async fn main() {
     // Set up the HTTP handlers
     let metrics_route = warp::path!("metrics").and_then(metrics::metrics_handler);
     let warp_future = warp::serve(metrics_route)
-        .bind(([0, 0, 0, 0], 5000))
+        .bind(config::CONFIG.socket_addr)
         .map(Ok);
 
     if let Err(e) = try_join!(discord_shard, warp_future) {
